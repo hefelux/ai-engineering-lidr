@@ -36,6 +36,16 @@ La transcripción que usé para probar está en data/transcripcion-reunion.txt
 
 Con esa transcripción y claude-haiku-4-5 la llamada usó ~1070 tokens de entrada y ~480 de salida (unos $0.003). La mayoría de la entrada son los ejemplos del contexto.
 
+## Chat con Streamlit
+
+```
+uv run streamlit run streamlit_app.py
+```
+
+Se abre en http://localhost:8501. Usa el mismo system prompt y los mismos ejemplos que el endpoint, y la API key se lee del .env.
+La respuesta llega en streaming y la conversación queda en pantalla, así que se puede seguir preguntando sobre la estimación.
+En la barra lateral están el system prompt, cuántos ejemplos van en el contexto y el modelo, los tokens, el tiempo y el costo de la última llamada.
+
 ## Tests
 
 ```
@@ -51,3 +61,4 @@ Revisan la estructura de carpetas, /health, /docs, que el prompt incluya los eje
 - app/routers/estimations.py: endpoint POST /api/v1/estimate
 - app/services/llm_service.py: arma el prompt con los ejemplos y llama a Claude
 - app/context/examples.py: estimaciones de ejemplo
+- streamlit_app.py: interfaz de chat con Streamlit
