@@ -7,8 +7,8 @@ from fastapi import HTTPException
 # Configuracion del .env
 from app.config import settings
 
-# Ejemplos de estimaciones que van en el prompt (contexto CAG)
-from app.context.examples import ESTIMATION_EXAMPLES
+# Arma el system y el user prompt desde las plantillas de app/prompts
+from app.prompts.loader import render_estimation_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -19,28 +19,6 @@ MAX_TOKENS = 2000
 PRICES = {
     "claude-haiku-4-5": (1.00, 5.00),
 }
-
-
-# Arma el system prompt (instrucciones + ejemplos)
-def build_system_prompt():
-    prompt = """Eres un experto en estimación de proyectos de software.
-A partir de la transcripción de una reunión con un cliente, genera una estimación del proyecto.
-
-Usa como referencia las estimaciones previas que te dejo abajo: mismo formato y horas parecidas.
-Incluye siempre el desglose de tareas con horas, el total, el equipo recomendado y la duración.
-Si falta información, indícalo como supuesto en vez de inventarla.
-Responde en español.
-
-ESTIMACIONES PREVIAS:
-"""
-
-    # Agrega cada ejemplo al final del prompt (para que sea CAG)
-    for i, example in enumerate(ESTIMATION_EXAMPLES, start=1):
-        prompt += f"\nEjemplo {i}\n"
-        prompt += f"Reunión: {example['meeting_summary']}\n"
-        prompt += f"Estimación:\n{example['estimation']}\n"
-
-    return prompt
 
 
 # Costo total de la llamada en dolares
@@ -55,9 +33,9 @@ def calculate_cost(input_tokens, output_tokens):
     return round(cost, 6)
 
 
-# Funcion principal: recibe la transcripcion y devuelve la estimacion
-def generate_estimation(transcription):
-    system_prompt = build_system_prompt()
+# Funcion principal: recibe lo que mando el formulario y devuelve la estimacion
+def generate_estimation(request, version="v1"):
+    system_prompt, user_prompt = render_estimation_prompt(request, version)
     logger.debug(f"Llamando a {settings.llm_provider} con el modelo {settings.llm_model}")
 
     # Por ahora solo esta implementado Anthropic
@@ -65,13 +43,13 @@ def generate_estimation(transcription):
         raise HTTPException(status_code=500, detail="Solo esta implementado el proveedor anthropic (revisar LLM_PROVIDER en el .env)")
 
     try:
-        # Llamada a Anthropic (system va como parametro aparte)
+        # Llamada a Anthropic (system y user van separados)
         client = Anthropic(api_key=settings.anthropic_api_key)
         response = client.messages.create(
             model=settings.llm_model,
             max_tokens=MAX_TOKENS,
             system=system_prompt,
-            messages=[{"role": "user", "content": transcription}],
+            messages=[{"role": "user", "content": user_prompt}],
         )
         text = response.content[0].text
 
@@ -87,9 +65,9 @@ def generate_estimation(transcription):
 
     # Lo que se devuelve al router
     return {
-        "estimation": text,
+        "text": text,
+        "prompt_version": version,
         "model": response.model,
-        "provider": settings.llm_provider,
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "cost_usd": calculate_cost(input_tokens, output_tokens),

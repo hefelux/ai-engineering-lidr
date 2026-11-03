@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     llm_provider: str = "openai"
     llm_model: str = "gpt-4o-mini"
 
+    # Donde corre la API (la usa el formulario de Streamlit)
+    api_url: str = "http://localhost:8000"
+
     # Entorno y nivel de logs
     app_env: str = "development"
     log_level: str = "DEBUG"
