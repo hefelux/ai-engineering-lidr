@@ -1,0 +1,11 @@
+{% set project_types = {
+    "mobile_app": "app móvil",
+    "web_saas": "aplicación web SaaS",
+    "internal_tool": "herramienta interna",
+    "data_pipeline": "pipeline de datos",
+} %}
+Tipo de proyecto: {{ project_types[project_type] }}
+
+<transcript>
+{{ transcript }}
+</transcript>

@@ -23,6 +23,13 @@ def test_estructura():
         "app/prompts/estimation/v2/system.j2",
         "app/prompts/estimation/v2/user.j2",
         "app/prompts/estimation/v2/examples.j2",
+        "app/prompts/estimation/v1/turn.j2",
+        "app/prompts/estimation/v2/turn.j2",
+        "app/prompts/metadata_extractor.j2",
+        "app/routers/sessions.py",
+        "app/sessions.py",
+        "app/services/attachments.py",
+        "app/services/session_service.py",
         ".env.example",
     ]
     for archivo in archivos:

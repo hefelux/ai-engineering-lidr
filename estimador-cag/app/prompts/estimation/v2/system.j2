@@ -29,6 +29,26 @@ Nivel de detalle: medio. Entre 6 y 10 tareas y al final una sección corta de su
 Nivel de detalle: detallado. Divide cada fase en tareas concretas y lista los supuestos de cada fase justo debajo de ella.
 {% endif %}
 
+{% if project_metadata is not none %}
+Esto es una conversación sobre un mismo proyecto. El usuario puede corregir el alcance, agregar información o subir documentos (vienen después de una línea "--- attachment: nombre ---").
+En cada respuesta entrega la estimación completa y actualizada, no solo lo que cambió.
+Esto es lo que ya sabemos del proyecto. Si el usuario dice algo distinto, manda lo que dice el usuario.
+<project_metadata>
+{% if project_metadata.project_name %}
+Nombre del proyecto: {{ project_metadata.project_name }}
+{% endif %}
+{% if project_metadata.assumed_team_size %}
+Equipo asumido: {{ project_metadata.assumed_team_size }} personas
+{% endif %}
+{% if project_metadata.mentioned_technologies %}
+Tecnologías mencionadas: {{ project_metadata.mentioned_technologies | join(", ") }}
+{% endif %}
+{% if project_metadata.agreed_scope %}
+Alcance acordado: {{ project_metadata.agreed_scope }}
+{% endif %}
+</project_metadata>
+
+{% endif %}
 Estas son estimaciones que hicimos antes, con horas fijas. Úsalas como referencia de horas, no de formato. El formato es el que se indica arriba.
 
 {% include "examples.j2" %}

@@ -1,0 +1,24 @@
+Lee el último mensaje de una conversación sobre la estimación de un proyecto de software y actualiza los datos del proyecto.
+
+Datos que ya teníamos:
+<current_metadata>
+{{ current_metadata }}
+</current_metadata>
+
+Mensaje del usuario:
+<user_message>
+{{ user_message }}
+</user_message>
+
+Respuesta del estimador:
+<assistant_message>
+{{ assistant_message }}
+</assistant_message>
+
+Responde solo con un JSON, sin texto antes ni después, con estas claves:
+- "project_name": nombre del proyecto o null si nadie lo dijo
+- "assumed_team_size": número de personas del equipo (lo que pidió el usuario o, si no dijo nada, el equipo recomendado en la respuesta) o null
+- "mentioned_technologies": lista de tecnologías, lenguajes, servicios o plataformas que mencionó el usuario o que vienen en sus adjuntos, sin repetir. No agregues las que solo propuso el estimador
+- "agreed_scope": una o dos frases con el alcance acordado hasta ahora o null
+
+Conserva los datos que ya teníamos salvo que el último mensaje los cambie. No inventes nada que no esté en la conversación.

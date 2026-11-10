@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # Donde corre la API (la usa el formulario de Streamlit)
     api_url: str = "http://localhost:8000"
 
+    # Turnos (pregunta + respuesta) que se guardan por sesion
+    max_turns: int = 6
+
     # Entorno y nivel de logs
     app_env: str = "development"
     log_level: str = "DEBUG"

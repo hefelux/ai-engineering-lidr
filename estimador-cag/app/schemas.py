@@ -2,6 +2,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from app.sessions import ProjectMetadata
+
 
 # Opciones del formulario (si llega un valor que no esta en la lista, FastAPI responde 422)
 class ProjectType(str, Enum):
@@ -66,3 +68,22 @@ class EstimationResponse(BaseModel):
 
     # Costo total de la llamada en dolares (aproximado)
     cost_usd: float
+
+
+# Respuesta de POST /sessions
+class SessionCreated(BaseModel):
+    session_id: str
+
+
+# Respuesta de un turno de la conversacion: la misma estimacion de antes mas el estado de la sesion
+class SessionEstimationResponse(EstimationResponse):
+    session_id: str
+
+    # Lo que sabemos del proyecto despues de este turno
+    project_metadata: ProjectMetadata
+
+    # Turnos que hay en el historial (como maximo MAX_TURNS)
+    history_turns: int
+
+    # Costo de la segunda llamada, la que actualiza el project_metadata
+    extractor_cost_usd: float

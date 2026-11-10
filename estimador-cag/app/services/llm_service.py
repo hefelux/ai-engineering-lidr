@@ -33,9 +33,8 @@ def calculate_cost(input_tokens, output_tokens):
     return round(cost, 6)
 
 
-# Funcion principal: recibe lo que mando el formulario y devuelve la estimacion
-def generate_estimation(request, version="v1"):
-    system_prompt, user_prompt = render_estimation_prompt(request, version)
+# Llama al modelo con el system aparte y la lista de mensajes (user / assistant)
+def call_llm(system_prompt, messages, max_tokens=MAX_TOKENS):
     logger.debug(f"Llamando a {settings.llm_provider} con el modelo {settings.llm_model}")
 
     # Por ahora solo esta implementado Anthropic
@@ -43,13 +42,13 @@ def generate_estimation(request, version="v1"):
         raise HTTPException(status_code=500, detail="Solo esta implementado el proveedor anthropic (revisar LLM_PROVIDER en el .env)")
 
     try:
-        # Llamada a Anthropic (system y user van separados)
+        # Llamada a Anthropic (system y mensajes van separados)
         client = Anthropic(api_key=settings.anthropic_api_key)
         response = client.messages.create(
             model=settings.llm_model,
-            max_tokens=MAX_TOKENS,
+            max_tokens=max_tokens,
             system=system_prompt,
-            messages=[{"role": "user", "content": user_prompt}],
+            messages=messages,
         )
         text = response.content[0].text
 
@@ -63,12 +62,18 @@ def generate_estimation(request, version="v1"):
     output_tokens = response.usage.output_tokens
     logger.debug(f"Tokens: {input_tokens} entrada, {output_tokens} salida")
 
-    # Lo que se devuelve al router
     return {
         "text": text,
-        "prompt_version": version,
         "model": response.model,
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "cost_usd": calculate_cost(input_tokens, output_tokens),
     }
+
+
+# Funcion principal: recibe lo que mando el formulario y devuelve la estimacion
+def generate_estimation(request, version="v1"):
+    system_prompt, user_prompt = render_estimation_prompt(request, version)
+    result = call_llm(system_prompt, [{"role": "user", "content": user_prompt}])
+    result["prompt_version"] = version
+    return result

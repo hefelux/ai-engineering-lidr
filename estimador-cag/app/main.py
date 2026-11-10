@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 
 from app.config import settings
-from app.routers import estimations
+from app.routers import estimations, sessions
 
 # Nivel de logs segun el LOG_LEVEL del .env
 logging.basicConfig(level=settings.log_level)
@@ -15,6 +15,9 @@ app = FastAPI(
 
 # Agrega el router de estimaciones con el prefijo /api/v1
 app.include_router(estimations.router, prefix="/api/v1")
+
+# Sesiones de conversacion (memoria y adjuntos), en /sessions como pide el enunciado
+app.include_router(sessions.router)
 
 
 # Endpoint para revisar que el servicio esta arriba
