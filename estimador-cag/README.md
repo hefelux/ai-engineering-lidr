@@ -158,7 +158,7 @@ En tests/test_sessions.py están los de la sesión 5, con httpx.AsyncClient y un
 - 8 turnos en la misma sesión: al modelo nunca le llegan más de MAX_TURNS y los mensajes más viejos ya no están
 - una sesión que no existe da 404 y un adjunto .txt da 415
 
-También corren en GitHub Actions en cada push.
+Hay un workflow en .github/workflows/ci.yml para correrlos en GitHub Actions.
 
 ## Estructura
 
