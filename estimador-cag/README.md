@@ -95,6 +95,31 @@ Lo elegí en vez de regex porque los datos vienen en lenguaje libre ("seríamos 
 En la primera prueba el extractor anotaba como "mencionadas" tecnologías que solo había propuesto el estimador, así que el prompt ahora pide solo las que dijo el usuario o vienen en los adjuntos.
 Si el extractor falla o devuelve algo que no es JSON, se queda el metadata anterior y la estimación se entrega igual.
 
+## Pruebas de carga del CAG (sesión 6)
+
+Mide dónde se rompe el CAG: latencia, costo y memoria a medida que la conversación crece y los adjuntos son más grandes. El resultado está en evals/stress/REPORT.md y los datos en evals/stress/results.csv.
+
+Con la API levantada (en otra terminal `uv run uvicorn app.main:app`):
+
+```
+uv run python -m evals.stress.run --http http://localhost:8000 \
+  --scenarios growing,pivot,contradiction \
+  --attachment-sizes 0,5,20,50,100 \
+  --repeats 3 \
+  --output evals/stress/results.csv
+uv run python -m evals.stress.summary
+```
+
+Sin `--http` corre en el mismo proceso. `--parallel` dice cuántas conversaciones van al mismo tiempo (3 por defecto) y `--turns` cuántos turnos tiene cada una (20 por defecto).
+
+- Cada turno deja un evento `turn_observed` con structlog (en app/services/session_service.py) y queda guardado en la sesión. `GET /sessions/{id}` devuelve el estado de la sesión con ese último evento, y de ahí lo lee el runner.
+- evals/stress/scenarios.py: tres conversaciones de 20 turnos (un proyecto que crece, uno que cambia de stack y uno que se contradice en el presupuesto), cada una con los hechos que debería recordar.
+- evals/stress/fixtures/build_pdfs.py: genera los PDF de 5, 20, 50 y 100 KB. No se suben, se generan solos si faltan.
+- evals/stress/metrics.py: LatencyBudgetMetric, CostBudgetMetric y MemoryDriftMetric.
+- evals/stress/summary.py: arma las tablas del reporte a partir del CSV.
+
+Este estimador no tiene resumen acumulativo, anclas, caché ni tier (la sesión 5 los dejó fuera), así que esos campos del evento van en 0 o "none".
+
 ## Formulario con Streamlit
 
 Con la API corriendo, en otra terminal:
@@ -157,6 +182,9 @@ En tests/test_sessions.py están los de la sesión 5, con httpx.AsyncClient y un
 - el mismo mensaje con y sin `tests/fixtures/requisitos.pdf`: con el PDF cambia la estimación y el texto del PDF llega al modelo después del separador
 - 8 turnos en la misma sesión: al modelo nunca le llegan más de MAX_TURNS y los mensajes más viejos ya no están
 - una sesión que no existe da 404 y un adjunto .txt da 415
+- cada turno deja un evento turn_observed con los 13 campos
+
+En tests/test_stress_metrics.py están las métricas de carga (una que pasa, una que falla y una justo en el límite) y en tests/test_stress_runner.py el runner corriendo en el mismo proceso con un LLM falso.
 
 Hay un workflow en .github/workflows/ci.yml para correrlos en GitHub Actions.
 
@@ -175,3 +203,4 @@ Hay un workflow en .github/workflows/ci.yml para correrlos en GitHub Actions.
 - app/services/session_service.py: un turno de la conversación y la llamada que actualiza el metadata
 - app/prompts/metadata_extractor.j2: prompt del extractor
 - streamlit_app.py: la conversación con Streamlit
+- evals/stress/: las pruebas de carga de la sesión 6 (escenarios, PDF, métricas, runner, resultados y reporte)

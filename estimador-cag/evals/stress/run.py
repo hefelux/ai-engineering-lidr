@@ -79,7 +79,7 @@ def found(words, text):
 
 
 # Una conversacion completa: un escenario, un tamaño de adjunto, una repeticion
-async def run_conversation(client, args, name, size_kb, repeat, writer, lock):
+async def run_conversation(client, args, name, size_kb, repeat, rows):
     scenario = SCENARIOS[name]
     response = await post_with_retry(client, "/sessions")
     session_id = response.json()["session_id"]
@@ -136,8 +136,7 @@ async def run_conversation(client, args, name, size_kb, repeat, writer, lock):
             "attachment_start_in_answer": int(turn_index == 1 and size_kb > 0 and "stripe" in answer.lower()),
             "attachment_end_in_answer": int(turn_index == 1 and size_kb > 0 and "kafka" in answer.lower()),
         })
-        async with lock:
-            writer.writerow(row)
+        rows.append(row)
         print(f"{name:13} {size_kb:>3} KB rep {repeat} turno {turn_index:>2}: "
               f"{observed['latency_ms']} ms, {observed['tokens_in']} tokens, memoria {drift_score:.2f}", flush=True)
 
@@ -162,16 +161,33 @@ async def main():
         lock = asyncio.Lock()
         limit = asyncio.Semaphore(args.parallel)
 
+        failed = []
+
+        # Si una conversacion falla (por ejemplo, el proveedor no responde), se
+        # repite desde cero con una sesion nueva. Asi un error suelto no corta todo.
         async def run_job(job):
             async with limit:
-                await run_conversation(client, args, *job, writer, lock)
-                file.flush()
+                for attempt in range(1, 4):
+                    rows = []
+                    try:
+                        await run_conversation(client, args, *job, rows)
+                        break
+                    except Exception as error:
+                        print(f"Fallo {job} (intento {attempt}): {error}", flush=True)
+                        rows = []
+                else:
+                    failed.append(job)
+                async with lock:
+                    writer.writerows(rows)
+                    file.flush()
 
         async with make_client(args.http) as client:
             await asyncio.gather(*(run_job(job) for job in jobs))
 
     minutes = (time.perf_counter() - started) / 60
-    print(f"Listo: {len(jobs)} conversaciones en {minutes:.1f} minutos. CSV en {output}")
+    print(f"Listo: {len(jobs) - len(failed)} de {len(jobs)} conversaciones en {minutes:.1f} minutos. CSV en {output}")
+    if failed:
+        print(f"Fallaron 3 veces: {failed}")
 
 
 if __name__ == "__main__":
