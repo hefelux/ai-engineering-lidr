@@ -20,7 +20,7 @@ uv sync
 cp .env.example .env
 ```
 
-Poner la API key en el .env (ANTHROPIC_API_KEY), junto con LLM_PROVIDER=anthropic y LLM_MODEL=claude-haiku-4-5, y después:
+Poner la API key en el .env (ANTHROPIC_API_KEY), junto con LLM_PROVIDER=anthropic y LLM_MODEL=claude-haiku-5-5, y después:
 
 ```
 uv run uvicorn app.main:app --reload

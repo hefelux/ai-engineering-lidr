@@ -1,4 +1,5 @@
 import logging
+import time
 
 from anthropic import Anthropic
 
@@ -18,6 +19,7 @@ MAX_TOKENS = 2000
 # Precio por millon de tokens (de entrada, de salida)
 PRICES = {
     "claude-haiku-4-5": (1.00, 5.00),
+    "claude-haiku-5-5": (0.10, 0.50),
 }
 
 
@@ -44,13 +46,22 @@ def call_llm(system_prompt, messages, max_tokens=MAX_TOKENS):
     try:
         # Llamada a Anthropic (system y mensajes van separados)
         client = Anthropic(api_key=settings.anthropic_api_key)
+        started = time.perf_counter()
         response = client.messages.create(
             model=settings.llm_model,
             max_tokens=max_tokens,
             system=system_prompt,
             messages=messages,
+            # Haiku 5.5 razona por defecto. Para estimar no hace falta y sale mas caro
+            thinking={"type": "disabled"},
         )
-        text = response.content[0].text
+        latency_ms = round((time.perf_counter() - started) * 1000)
+
+        # Se junta el texto de los bloques de tipo "text" (puede venir mas de uno)
+        text = ""
+        for block in response.content:
+            if block.type == "text":
+                text += block.text
 
     # Si falla el proveedor (key, red, sin credito) se responde 502
     except Exception as e:
@@ -68,6 +79,7 @@ def call_llm(system_prompt, messages, max_tokens=MAX_TOKENS):
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "cost_usd": calculate_cost(input_tokens, output_tokens),
+        "latency_ms": latency_ms,
     }
 
 
