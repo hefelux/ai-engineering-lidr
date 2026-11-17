@@ -1,11 +1,15 @@
 import json
 import logging
+import time
+
+import structlog
 
 from app.prompts.loader import render_metadata_prompt, render_session_prompt
 from app.services import llm_service
 from app.sessions import ProjectMetadata
 
 logger = logging.getLogger(__name__)
+events = structlog.get_logger()
 
 EXTRACTOR_SYSTEM = "Extraes datos de proyectos de software y respondes solo con JSON."
 
@@ -28,7 +32,8 @@ def update_metadata(current, user_message, assistant_message):
 
 
 # Un turno de la conversacion: arma el prompt, llama al modelo y actualiza historial y metadata
-def run_turn(session, form, transcript, version="v1"):
+def run_turn(session, form, transcript, version="v1", attachments_chars=0):
+    started = time.perf_counter()
     system_prompt, user_prompt = render_session_prompt(form, transcript, session.metadata, version)
 
     history = session.history
@@ -45,6 +50,31 @@ def run_turn(session, form, transcript, version="v1"):
     history.add_assistant(result["text"])
 
     session.metadata, extractor_cost = update_metadata(session.metadata, transcript, result["text"])
+
+    # Un solo evento con todo lo del turno, asi se arma el CSV de una pasada.
+    # Este estimador no tiene resumen, anclas, cache ni tier (la sesion 5 los dejo
+    # fuera), por eso esos campos van siempre en 0 o "none".
+    session.turn_count += 1
+    observed = {
+        "turn_index": session.turn_count,
+        "session_id": session.session_id,
+        "enriched_transcript_chars": len(transcript),
+        "attachments_total_chars": attachments_chars,
+        "messages_in_window": len(history.messages),
+        "anchors_count": 0,
+        "summary_chars": 0,
+        "tokens_in": result["input_tokens"],
+        "tokens_out": result["output_tokens"],
+        "cost_usd": result["cost_usd"],
+        "latency_ms": result["latency_ms"],
+        "cache_hit_kind": "none",
+        "last_resolved_tier": "none",
+        # extras: la segunda llamada (metadata) y lo que tarda el turno completo
+        "extractor_cost_usd": extractor_cost,
+        "turn_latency_ms": round((time.perf_counter() - started) * 1000),
+    }
+    session.last_turn = observed
+    events.info("turn_observed", **observed)
 
     result["prompt_version"] = version
     result["session_id"] = session.session_id

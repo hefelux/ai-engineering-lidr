@@ -37,10 +37,35 @@ def estimate_in_session(
         files.append((attachment.filename, attachment.file.read()))
 
     full_transcript = build_transcript(transcript, files)
+    # lo que suman los adjuntos (con sus separadores)
+    attachments_chars = len(full_transcript) - len(transcript.strip())
 
     form = {
         "project_type": project_type.value,
         "detail_level": detail_level.value,
         "output_format": output_format.value,
     }
-    return run_turn(session, form, full_transcript, prompt_version.value)
+    return run_turn(session, form, full_transcript, prompt_version.value, attachments_chars)
+
+
+# Para depurar y para las pruebas de carga: el estado de la sesion y el ultimo turno.
+# Lo usa evals/stress/run.py para leer turn_observed sin parsear los logs.
+@router.get("/sessions/{session_id}")
+def session_snapshot(session_id: str):
+    session = get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="La sesión no existe. Crea una nueva con POST /sessions")
+    return {
+        "session_id": session.session_id,
+        "turn_count": session.turn_count,
+        "message_count": len(session.history.messages),
+        "anchors_count": 0,
+        "anchors": [],
+        "summary_chars": 0,
+        "summary": "",
+        "last_resolved_tier": "none",
+        "last_tier_rule": "none",
+        "project_metadata": session.metadata,
+        "window": session.history.messages,
+        "last_turn": session.last_turn,
+    }

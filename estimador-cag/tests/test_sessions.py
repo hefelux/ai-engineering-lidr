@@ -44,7 +44,7 @@ class FakeLLM:
             else:
                 text = "Total: 300 horas"
 
-        return {"text": text, "model": "fake", "input_tokens": 10, "output_tokens": 5, "cost_usd": 0.0}
+        return {"text": text, "model": "fake", "input_tokens": 10, "output_tokens": 5, "cost_usd": 0.0, "latency_ms": 1}
 
 
 @pytest.fixture
@@ -164,3 +164,35 @@ async def test_adjunto_no_soportado(fake_llm):
     assert response.status_code == 415
     # la pregunta rechazada no queda en el historial
     assert fake_llm.estimate_calls == []
+
+
+# Cada turno deja un solo evento turn_observed con los 13 campos del enunciado
+@pytest.mark.anyio
+async def test_turn_observed_con_los_13_campos(fake_llm):
+    from structlog.testing import capture_logs
+
+    campos = [
+        "turn_index", "session_id", "enriched_transcript_chars", "attachments_total_chars",
+        "messages_in_window", "anchors_count", "summary_chars", "tokens_in", "tokens_out",
+        "cost_usd", "latency_ms", "cache_hit_kind", "last_resolved_tier",
+    ]
+    pdf = (Path(__file__).parent / "fixtures" / "requisitos.pdf").read_bytes()
+    async with make_client() as client:
+        session_id = await new_session(client)
+        with capture_logs() as logs:
+            await send_turn(client, session_id, "Una app de reservas")
+            files = [("attachments", ("requisitos.pdf", pdf, "application/pdf"))]
+            await send_turn(client, session_id, "Ahora con el documento", files)
+        snapshot = (await client.get(f"/sessions/{session_id}")).json()
+
+    observed = [log for log in logs if log["event"] == "turn_observed"]
+    assert len(observed) == 2
+    for event in observed:
+        for campo in campos:
+            assert campo in event
+    assert observed[0]["turn_index"] == 1 and observed[1]["turn_index"] == 2
+    assert observed[0]["attachments_total_chars"] == 0
+    assert observed[1]["attachments_total_chars"] > 0
+    # el snapshot trae el ultimo turno
+    assert snapshot["last_turn"]["turn_index"] == 2
+    assert snapshot["message_count"] == 4

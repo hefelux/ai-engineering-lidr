@@ -79,6 +79,10 @@ class Session:
         self.created_at = datetime.now()
         self.history = ConversationHistory()
         self.metadata = ProjectMetadata()
+        # turnos totales de la sesion (la ventana guarda solo los ultimos)
+        self.turn_count = 0
+        # el evento turn_observed del ultimo turno, para GET /sessions/{id}
+        self.last_turn = None
 
 
 # session_id -> Session
