@@ -16,18 +16,16 @@ Dónde se rompe el estimador de la sesión 5 cuando la conversación se alarga y
 | Duración y costo total | 35 minutos con 3 conversaciones a la vez, US$ 1,77 |
 
 ```
-uv run python -m evals.stress.run --http http://localhost:8010 \
+uv run python -m evals.stress.run --http http://localhost:8000 \
   --scenarios growing,pivot,contradiction --attachment-sizes 0,5,20,50,100 \
   --repeats 3 --output evals/stress/results.csv
 ```
-
-La API corrió en el puerto 8010 porque el 8000 estaba ocupado. Las tres conversaciones en paralelo pueden subir un poco la latencia, pero todas las combinaciones se midieron igual.
 
 ### Lo que este CAG no tiene
 
 El enunciado supone resumen acumulativo, anclas, tier dinámico y caché semántica. Este estimador no los tiene porque el enunciado de la sesión 5 los puso en "Lo que no entra". La memoria es solo la ventana de 6 turnos (`MAX_TURNS=6`) más el `project_metadata` (nombre, equipo, tecnologías y alcance), que actualiza un extractor después de cada turno. Por eso `anchors_count` y `summary_chars` son siempre 0, `cache_hit_kind` es siempre "none" y `last_resolved_tier` es "none". Esas piezas no se agregaron antes de medir, porque el ejercicio pide medir sin cambiar el sistema. Lo único que se agregó es lo que pide el ejercicio para observar: el evento `turn_observed` y `GET /sessions/{id}`.
 
-El tope de adjunto también es distinto: 20.000 caracteres por archivo (`MAX_CHARS_PER_FILE`), no 60.000. No se cambió.
+El tope de adjunto también es distinto: 20.000 caracteres por archivo (`MAX_CHARS_PER_FILE`), no 60.000.
 
 ### Decisiones
 
