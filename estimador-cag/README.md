@@ -120,6 +120,59 @@ Sin `--http` corre en el mismo proceso. `--parallel` dice cuántas conversacione
 
 Este estimador no tiene resumen acumulativo, anclas, caché ni tier (la sesión 5 los dejó fuera), así que esos campos del evento van en 0 o "none".
 
+## Pipeline de embeddings (sesión 7)
+
+Recibe presupuestos en JSON, los corta en fragmentos (un componente = un fragmento), los vectoriza con `text-embedding-3-small` de OpenAI y devuelve los vectores. No guarda nada, todo queda en memoria.
+Necesita `OPENAI_API_KEY` en el .env.
+
+- app/embedding_pipeline/schemas.py: Budget, BudgetComponent, Chunk, EmbeddedChunk, IngestRequest e IngestResponse.
+- app/embedding_pipeline/chunker.py: JSONStructuralChunker. Cada fragmento lleva arriba el proyecto, el sector, el año y la tecnología principal del presupuesto, y su metadata (budget_id, component_id, client_sector, main_technology, year, complexity, estimated_hours) viaja al lado sin vectorizarse.
+- app/embedding_pipeline/embedder.py: OpenAIEmbedder, de a 100 fragmentos por llamada, con 3 reintentos (1, 2 y 4 segundos) si la API responde 429 y un log `embedding_batch` por lote.
+- app/embedding_pipeline/router.py: `POST /embeddings/ingest`.
+- data/budgets_sample.json: los 15 presupuestos de ejemplo del curso.
+
+### Con Docker
+
+```
+docker compose build servicio_ia
+docker compose up -d servicio_ia
+```
+
+La API queda en http://localhost:8000 y el endpoint se puede probar desde http://localhost:8000/docs.
+
+### Invocar el endpoint
+
+Con los 15 presupuestos de ejemplo:
+
+```
+python3 -c "import json; print(json.dumps({'budgets': json.load(open('data/budgets_sample.json'))}))" > /tmp/ingest.json
+curl -X POST http://localhost:8000/embeddings/ingest \
+  -H "Content-Type: application/json" \
+  -d @/tmp/ingest.json
+```
+
+Devuelve los 52 fragmentos, cada uno con su vector de 1536 números, y las estadísticas (`total_budgets`, `total_chunks`, `total_tokens` y `estimated_cost_usd`). Si un presupuesto no cumple el schema (por ejemplo un sector que no existe) responde 422, y si falla la API de OpenAI responde 500 con un mensaje genérico (el detalle queda en los logs).
+
+### Comparar dos textos
+
+Dentro del contenedor:
+
+```
+docker compose exec servicio_ia python scripts/compare.py \
+  --text-a "OAuth 2.0 authentication backend for fintech" \
+  --text-b "JWT-based authorization service for banking app"
+```
+
+Fuera del contenedor (lee el .env de esta carpeta):
+
+```
+uv run python scripts/compare.py \
+  --text-a "OAuth 2.0 authentication backend for fintech" \
+  --text-b "JWT-based authorization service for banking app"
+```
+
+La similitud coseno se calcula a mano, sin numpy. Los resultados de las tres parejas del ejercicio están en app/embedding_pipeline/SANITY_CHECK.md.
+
 ## Formulario con Streamlit
 
 Con la API corriendo, en otra terminal:
@@ -204,3 +257,7 @@ Hay un workflow en .github/workflows/ci.yml para correrlos en GitHub Actions.
 - app/prompts/metadata_extractor.j2: prompt del extractor
 - streamlit_app.py: la conversación con Streamlit
 - evals/stress/: las pruebas de carga de la sesión 6 (escenarios, PDF, métricas, runner, resultados y reporte)
+- app/embedding_pipeline/: el pipeline de embeddings de la sesión 7 (schemas, chunker, embedder, router y SANITY_CHECK.md)
+- scripts/compare.py: similitud coseno entre dos textos
+- data/budgets_sample.json: presupuestos de ejemplo para el pipeline
+- Dockerfile y compose.yaml: la API en el servicio servicio_ia

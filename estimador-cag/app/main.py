@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI
 
 from app.config import settings
+from app.embedding_pipeline import router as embedding_router
 from app.routers import estimations, sessions
 
 # Nivel de logs segun el LOG_LEVEL del .env
@@ -18,6 +19,9 @@ app.include_router(estimations.router, prefix="/api/v1")
 
 # Sesiones de conversacion (memoria y adjuntos), en /sessions como pide el enunciado
 app.include_router(sessions.router)
+
+# Pipeline de embeddings (sesion 7): POST /embeddings/ingest
+app.include_router(embedding_router.router, prefix="/embeddings")
 
 
 # Endpoint para revisar que el servicio esta arriba
